@@ -1,46 +1,46 @@
 package main
 
 import (
-	"flag"
+	"os"
 
-	"github.com/oracle/oci-go-sdk/objectstorage"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/akamensky/argparse"
+	"github.com/oracle/oci-go-sdk/v65/common"
+	"github.com/oracle/oci-go-sdk/v65/objectstorage"
 	"guidurand.go/teslamatebackup/cleanup"
-	"guidurand.go/teslamatebackup/tools"
 	"guidurand.go/teslamatebackup/upload"
 )
 
 func main() {
-	clean := flag.Bool("cleanup", false, "remove files depending retention duration")
-	retention := flag.Int("retention", -1, "retention duration in days")
-	up := flag.Bool("upload", false, "upload a file")
-	file := flag.String("file", "", "path to the file to upload")
-	bucket := flag.String("bucket", "", "storage bucket name")
-
-	flag.Parse()
-
-	var sclient objectstorage.ObjectStorageClient
-
-	if *clean || *up {
-		sclient = tools.InitStorageClient()
-	} else {
-		flag.PrintDefaults()
+	config := common.DefaultConfigProvider()
+	sclient, err := objectstorage.NewObjectStorageClientWithConfigurationProvider(config)
+	if err != nil {
+		log.Fatalln(err)
 	}
 
-	if *clean {
-		if *retention > 0 && len(*bucket) > 0 {
-			files := cleanup.ListFiles(*bucket, sclient)
-			filesToDel := cleanup.CheckDate(files, *retention)
-			cleanup.DeleteObject(filesToDel, *bucket, sclient)
-		} else {
-			flag.PrintDefaults()
-		}
+	parser := argparse.NewParser("teslamatebackup", "Upload and manage backup from teslamate")
+
+	bucketOCI := parser.String("b", "bucket", &argparse.Options{Required: true, Help: "Backup OCI bucket"})
+
+	uploadCommand := parser.NewCommand("upload", "Upload file to a OCI bucket")
+	backupFilepath := uploadCommand.String("f", "file", &argparse.Options{Required: true, Help: "Backup file path to upload"})
+
+	cleanupCommand := parser.NewCommand("cleanup", "Remove files depending retention duration")
+	cleanupRetention := cleanupCommand.Int("r", "retention", &argparse.Options{Required: true, Help: "Retention duration in days"})
+
+	err = parser.Parse(os.Args)
+	if err != nil {
+		log.Fatalln(parser.Usage(err))
 	}
 
-	if *up {
-		if len(*file) > 0 && len(*bucket) > 0 {
-			upload.UploadFile(*file, *bucket, sclient)
-		} else {
-			flag.PrintDefaults()
-		}
+	if uploadCommand.Happened() {
+		upload.UploadFile(*backupFilepath, *bucketOCI, sclient)
+	}
+
+	if cleanupCommand.Happened() {
+		files := cleanup.ListFiles(*bucketOCI, sclient)
+		filesToDel := cleanup.CheckDate(files, *cleanupRetention)
+		cleanup.DeleteObject(filesToDel, *bucketOCI, sclient)
 	}
 }

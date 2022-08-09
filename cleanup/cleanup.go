@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oracle/oci-go-sdk/example/helpers"
-	"github.com/oracle/oci-go-sdk/objectstorage"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/oracle/oci-go-sdk/v65/objectstorage"
 	"guidurand.go/teslamatebackup/tools"
 )
 
@@ -23,7 +24,9 @@ func ListFiles(bucket string, sc objectstorage.ObjectStorageClient) (f []string)
 		BucketName:    &bucket}
 
 	resp, err := sc.ListObjects(ctx, req)
-	helpers.FatalIfError(err)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	files := make([]string, 0)
 
@@ -38,7 +41,9 @@ func CheckDate(f []string, r int) (d []string) {
 	toDel := make([]string, 0)
 	for _, name := range f {
 		fileTS, err := strconv.Atoi(strings.Split(strings.Split(name, "-")[1], ".")[0])
-		helpers.FatalIfError(err)
+		if err != nil {
+			log.Fatalln(err)
+		}
 		actualTS := int(time.Now().Unix())
 		if actualTS-fileTS > r*24*60*60 {
 			toDel = append(toDel, name)
@@ -59,7 +64,9 @@ func DeleteObject(f []string, b string, sc objectstorage.ObjectStorageClient) {
 			ObjectName:    &file,
 		}
 		_, err := sc.DeleteObject(ctx, req)
-		helpers.FatalIfError(err)
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 
 }

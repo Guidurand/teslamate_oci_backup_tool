@@ -7,8 +7,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/oracle/oci-go-sdk/example/helpers"
-	"github.com/oracle/oci-go-sdk/objectstorage"
+	"github.com/oracle/oci-go-sdk/v65/objectstorage"
+	log "github.com/sirupsen/logrus"
 	"guidurand.go/teslamatebackup/tools"
 )
 
@@ -20,14 +20,19 @@ func UploadFile(filepath string, bucket string, sc objectstorage.ObjectStorageCl
 
 	filename := path.Base(filepath)
 	filesize, e := getObjectSize(filepath)
-	helpers.FatalIfError(e)
-
+	if e != nil {
+		log.Fatalln(e)
+	}
 	file, e := os.Open(filepath)
-	helpers.FatalIfError(e)
+	if e != nil {
+		log.Fatalln(e)
+	}
 	defer file.Close()
 
 	e = putObject(ctx, sc, namespace, bname, filename, filesize, file, nil)
-	helpers.FatalIfError(e)
+	if e != nil {
+		log.Fatalln(e)
+	}
 
 }
 
